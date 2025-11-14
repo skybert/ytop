@@ -16,6 +16,12 @@
   alt="ytop screenshot on macOS"
 />
 
+# How to run
+
+```text
+$ make
+```
+
 # License
 
 `ytop` is free software, GPLv3, see [LICENSE](LICENSE).

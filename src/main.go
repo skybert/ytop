@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -49,7 +48,7 @@ type model struct {
 	width   int
 }
 
-var updateIntervalSeconds = 2
+var updateIntervalSeconds = 4
 
 func newStyles() table.Styles {
 	s := table.DefaultStyles()
@@ -107,9 +106,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmdWidth := max(m.width-30, 20)
 		m.table.SetColumns([]table.Column{
 			{Title: "PID", Width: 7},
-			{Title: "Mem (KB)", Width: 8},
-			{Title: "CPU", Width: 5},
-			{Title: "Command", Width: cmdWidth},
+			{Title: "RES", Width: 8},
+			{Title: "%CPU", Width: 5},
+			{Title: "COMMAND", Width: cmdWidth},
 		})
 
 		return m, nil
@@ -149,7 +148,9 @@ func (m model) View() string {
 
 	line := headerStyle.Render(
 		fmt.Sprintf(
-			"ytop — sorting by %s | q to quit",
+			"ytop — %s up %s | sorting by %s",
+			time.Now().Format("15:04:05"),
+			formatUptime(uptime()),
 			m.sortKey.String(),
 		))
 
@@ -212,24 +213,6 @@ func (m *model) updateTable(procs []process) {
 		}
 	}
 	m.table.SetRows(rows)
-}
-
-func (m *model) sortProcesses(processes []process) {
-	sort.Slice(processes, func(i, j int) bool {
-		pi := processes[i]
-		pj := processes[j]
-
-		switch m.sortKey {
-		case SortKeyMemory:
-			return pi.RSS > pj.RSS
-		case SortKeyCPU:
-			return pi.CPU > pj.CPU
-		case SortKeyName:
-			// Sort name ascending
-			return pi.Name < pj.Name
-		}
-		return false
-	})
 }
 
 func main() {
