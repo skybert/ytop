@@ -144,6 +144,9 @@ func (m model) View() string {
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Padding(0, 1)
+	helpStyle := lipgloss.NewStyle().
+		Bold(false).
+		Padding(0, 1)
 
 	line := headerStyle.Render(
 		fmt.Sprintf(
@@ -152,8 +155,16 @@ func (m model) View() string {
 			formatUptime(uptime()),
 			m.sortKey.String(),
 		))
+	help := helpStyle.Render(
+		fmt.Sprintf(
+			"Sort: %s %s %s | %s ",
+			"P (cpu)",
+			"M (mem)",
+			"N (prog name)",
+			"q: quit",
+		))
 
-	return line + "\n\n" + m.table.View()
+	return line + "\n" + help + "\n\n" + m.table.View()
 }
 
 func (m *model) updateTable(procs []process) {
