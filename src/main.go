@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	psutil "github.com/shirou/gopsutil/v4/process"
 )
 
 type sortKey int
@@ -155,49 +154,6 @@ func (m model) View() string {
 		))
 
 	return line + "\n\n" + m.table.View()
-}
-
-func getProcesses() []process {
-	procs, err := psutil.Processes()
-	if err != nil {
-		return nil
-	}
-
-	var result []process
-
-	for _, p := range procs {
-		name, err := p.Name()
-		if err != nil || name == "" {
-			continue
-		}
-
-		args, _ := p.Cmdline()
-
-		mem, err := p.MemoryInfo()
-		if err != nil {
-			continue
-		}
-
-		cpu, err := p.CPUPercent()
-		if err != nil {
-			continue
-		}
-
-		cmd := args
-		if cmd == "" {
-			cmd = name
-		}
-
-		result = append(result, process{
-			Pid:  int(p.Pid),
-			Name: name,
-			Args: cmd,
-			RSS:  mem.RSS / 1024,
-			CPU:  cpu,
-		})
-	}
-
-	return result
 }
 
 func (m *model) updateTable(procs []process) {
