@@ -1,6 +1,6 @@
 
-run: fmt
-	go run src/main.go
+run: build
+	./ytop
 
 fmt:
 	gofmt -s -w ./src

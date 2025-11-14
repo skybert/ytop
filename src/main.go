@@ -48,7 +48,7 @@ type model struct {
 	width   int
 }
 
-var updateIntervalSeconds = 4
+var updateIntervalSeconds = 2
 
 func newStyles() table.Styles {
 	s := table.DefaultStyles()
@@ -66,7 +66,7 @@ func newProcessTable() table.Model {
 		{Title: "PID", Width: 7},
 		{Title: "Mem (KB)", Width: 10},
 		{Title: "CPU", Width: 7},
-		{Title: "Command", Width: 50}, // resizable dynamically
+		{Title: "Command", Width: 50},
 	}
 
 	t := table.New(
