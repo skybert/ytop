@@ -107,6 +107,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			{Title: "PID", Width: 7},
 			{Title: "RES", Width: 8},
 			{Title: "%CPU", Width: 5},
+			{Title: "NAME", Width: 20},
 			{Title: "COMMAND", Width: cmdWidth},
 		})
 
@@ -176,6 +177,7 @@ func (m *model) updateTable(procs []process) {
 			fmt.Sprintf("%d", p.Pid),
 			fmt.Sprintf("%d", p.RSS),
 			fmt.Sprintf("%.1f", p.CPU),
+			p.Name,
 			p.Args,
 		}
 	}
