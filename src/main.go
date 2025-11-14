@@ -49,6 +49,8 @@ type model struct {
 	width   int
 }
 
+var updateIntervalSeconds = 2
+
 func newStyles() table.Styles {
 	s := table.DefaultStyles()
 
@@ -64,7 +66,7 @@ func newProcessTable() table.Model {
 	columns := []table.Column{
 		{Title: "PID", Width: 7},
 		{Title: "Mem (KB)", Width: 10},
-		{Title: "CPU", Width: 5},
+		{Title: "CPU", Width: 7},
 		{Title: "Command", Width: 50}, // resizable dynamically
 	}
 
@@ -82,9 +84,11 @@ func (m model) Init() tea.Cmd {
 }
 
 func refreshCmd() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return refreshMsg(getProcesses())
-	})
+	return tea.Tick(
+		time.Second*time.Duration(updateIntervalSeconds),
+		func(t time.Time) tea.Msg {
+			return refreshMsg(getProcesses())
+		})
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -104,7 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetColumns([]table.Column{
 			{Title: "PID", Width: 7},
 			{Title: "Mem (KB)", Width: 8},
-			{Title: "CPU", Width: 3},
+			{Title: "CPU", Width: 5},
 			{Title: "Command", Width: cmdWidth},
 		})
 
