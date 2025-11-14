@@ -3,7 +3,7 @@ run: build
 	./ytop
 
 fmt:
-	gofmt -s -w ./src
+	gofmt -s -w ./cmd ./internal
 
 build: fmt
-	go build -o ytop src/*.go
+	go build -o ytop cmd/*.go

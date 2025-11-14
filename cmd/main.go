@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"skybert.net/ytop/internal"
+	"skybert.net/ytop/pkg"
 )
 
 type sortKey int
@@ -30,15 +33,7 @@ func (k sortKey) String() string {
 	return "unknown"
 }
 
-type process struct {
-	Pid  int
-	Name string
-	Args string
-	RSS  uint64
-	CPU  float64
-}
-
-type refreshMsg []process
+type refreshMsg []pkg.Process
 
 type model struct {
 	table   table.Model
@@ -85,7 +80,7 @@ func refreshCmd() tea.Cmd {
 	return tea.Tick(
 		time.Second*time.Duration(updateIntervalSeconds),
 		func(t time.Time) tea.Msg {
-			return refreshMsg(getProcesses())
+			return refreshMsg(internal.GetProcesses())
 		})
 }
 
@@ -120,13 +115,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "N":
 			m.sortKey = SortKeyName
-			m.updateTable(getProcesses())
+			m.updateTable(internal.GetProcesses())
 		case "M":
 			m.sortKey = SortKeyMemory
-			m.updateTable(getProcesses())
+			m.updateTable(internal.GetProcesses())
 		case "P":
 			m.sortKey = SortKeyCPU
-			m.updateTable(getProcesses())
+			m.updateTable(internal.GetProcesses())
 		case "cltr+p", "up", "k":
 			m.table.MoveUp(1)
 		case "ctrl+n", "down", "j":
@@ -134,7 +129,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case refreshMsg:
-		m.updateTable([]process(msg))
+		m.updateTable([]pkg.Process(msg))
 		return m, refreshCmd()
 	}
 
@@ -153,7 +148,7 @@ func (m model) View() string {
 		fmt.Sprintf(
 			"ytop — %s up %s | sorting by %s",
 			time.Now().Format("15:04:05"),
-			formatUptime(uptime()),
+			internal.FormatUptime(internal.Uptime()),
 			m.sortKey.String(),
 		))
 	help := helpStyle.Render(
@@ -168,7 +163,25 @@ func (m model) View() string {
 	return line + "\n" + help + "\n\n" + m.table.View()
 }
 
-func (m *model) updateTable(procs []process) {
+func (m *model) sortProcesses(processes []pkg.Process) {
+	sort.Slice(processes, func(i, j int) bool {
+		pi := processes[i]
+		pj := processes[j]
+
+		switch m.sortKey {
+		case SortKeyMemory:
+			return pi.RSS > pj.RSS
+		case SortKeyCPU:
+			return pi.CPU > pj.CPU
+		case SortKeyName:
+			// Sort name ascending
+			return pi.Name < pj.Name
+		}
+		return false
+	})
+}
+
+func (m *model) updateTable(procs []pkg.Process) {
 	m.sortProcesses(procs)
 
 	rows := make([]table.Row, len(procs))

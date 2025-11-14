@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 )
 
-func formatUptime(d time.Duration) string {
+func FormatUptime(d time.Duration) string {
 	totalSeconds := int64(d.Seconds())
 
 	days := totalSeconds / (24 * 3600)
@@ -20,7 +20,7 @@ func formatUptime(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", hours, minutes)
 }
 
-func uptime() time.Duration {
+func Uptime() time.Duration {
 	info, _ := host.Info()
 	boot := time.Unix(int64(info.BootTime), 0)
 	return time.Since(boot)
