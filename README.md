@@ -8,6 +8,14 @@
   alt="ytop screenshot on Linux"
 />
 
+# Screenshot macOS
+
+<img
+  class="centered"
+  src="doc/screenshot-macos.png"
+  alt="ytop screenshot on macOS"
+/>
+
 # License
 
 `ytop` is free software, GPLv3, see [LICENSE](LICENSE).
