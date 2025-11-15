@@ -5,7 +5,20 @@ import (
 	"skybert.net/ytop/pkg"
 )
 
-func GetProcesses() []pkg.Process {
+func Process(pid int) *pkg.Process {
+	procs := Processes()
+	for _, p := range procs {
+		if p.Pid == pid {
+			return &p
+		}
+	}
+
+	return nil
+}
+
+// Processes returns the current running processes, represented using
+// the ytop model.
+func Processes() []pkg.Process {
 	procs, err := psutil.Processes()
 	if err != nil {
 		return nil
@@ -16,6 +29,12 @@ func GetProcesses() []pkg.Process {
 	for _, p := range procs {
 		name, err := p.Name()
 		if err != nil || name == "" {
+			continue
+		}
+		envVars, err := p.Environ()
+		if err != nil {
+			// TODO not sure if we should continue here,
+			// or just not include the env variables.
 			continue
 		}
 
@@ -42,6 +61,7 @@ func GetProcesses() []pkg.Process {
 			Args: cmd,
 			RSS:  mem.RSS / 1024,
 			CPU:  cpu,
+			Env:  envVars,
 		})
 	}
 

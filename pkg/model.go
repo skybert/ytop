@@ -6,4 +6,5 @@ type Process struct {
 	Args string
 	RSS  uint64
 	CPU  float64
+	Env  []string
 }

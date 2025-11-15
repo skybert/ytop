@@ -7,7 +7,8 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 )
 
-func FormatUptime(d time.Duration) string {
+func HumanUptime() string {
+	d := Uptime()
 	totalSeconds := int64(d.Seconds())
 
 	days := totalSeconds / (24 * 3600)

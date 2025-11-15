@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -13,7 +15,13 @@ import (
 	"skybert.net/ytop/pkg"
 )
 
+type mode int
 type sortKey int
+
+const (
+	modeViewTable mode = iota
+	modeViewProcess
+)
 
 const (
 	SortKeyCPU sortKey = iota
@@ -40,6 +48,7 @@ type model struct {
 	sortKey sortKey
 	height  int
 	width   int
+	mode    mode
 }
 
 var updateIntervalSeconds = 2
@@ -80,7 +89,7 @@ func refreshCmd() tea.Cmd {
 	return tea.Tick(
 		time.Second*time.Duration(updateIntervalSeconds),
 		func(t time.Time) tea.Msg {
-			return refreshMsg(internal.GetProcesses())
+			return refreshMsg(internal.Processes())
 		})
 }
 
@@ -113,16 +122,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "ctrl+c", "q":
 			return m, tea.Quit
-		case "N":
+		case "enter":
+			selectedRowContainsData := len(m.table.SelectedRow()) > 0
+			if m.mode == modeViewTable && selectedRowContainsData {
+				m.mode = modeViewProcess
+			}
+		case "esc":
+			if m.mode == modeViewProcess {
+				m.mode = modeViewTable
+			}
+		case "N", "n":
 			m.sortKey = SortKeyName
-			m.updateTable(internal.GetProcesses())
-		case "M":
+			m.updateTable(internal.Processes())
+		case "M", "m":
 			m.sortKey = SortKeyMemory
-			m.updateTable(internal.GetProcesses())
-		case "P":
+			m.updateTable(internal.Processes())
+		case "P", "p":
 			m.sortKey = SortKeyCPU
-			m.updateTable(internal.GetProcesses())
-		case "cltr+p", "up", "k":
+			m.updateTable(internal.Processes())
+		case "ctrl+p", "up", "k":
 			m.table.MoveUp(1)
 		case "ctrl+n", "down", "j":
 			m.table.MoveDown(1)
@@ -136,7 +154,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m model) viewHeader() string {
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Padding(0, 1)
@@ -146,21 +164,65 @@ func (m model) View() string {
 
 	line := headerStyle.Render(
 		fmt.Sprintf(
-			"ytop — %s up %s | sorting by %s",
+			"ytop — %s up %s | sorted by %s",
 			time.Now().Format("15:04:05"),
-			internal.FormatUptime(internal.Uptime()),
+			internal.HumanUptime(),
 			m.sortKey.String(),
 		))
 	help := helpStyle.Render(
 		fmt.Sprintf(
 			"Sort: %s %s %s | %s ",
-			"P (cpu)",
-			"M (mem)",
-			"N (prog name)",
-			"q: quit",
+			"p (cpu)",
+			"m (mem)",
+			"n (name)",
+			"quit: q",
 		))
+	return line + "\n" + help + "\n\n"
 
-	return line + "\n" + help + "\n\n" + m.table.View()
+}
+
+func (m model) viewTable() string {
+	return m.viewHeader() + m.table.View()
+
+}
+
+func (m model) viewProcess() string {
+	row := m.table.SelectedRow()
+	if len(row) == 0 {
+		return ""
+	}
+	pid, err := strconv.Atoi(row[0])
+	if err != nil {
+		return ""
+	}
+	p := internal.Process(pid)
+
+	labelStyle := lipgloss.NewStyle().
+		Bold(true).
+		Padding(0, 1)
+
+	sort.Slice(p.Env, func(i, j int) bool {
+		one := p.Env[i]
+		two := p.Env[j]
+		return one < two
+	})
+
+	procInfo := labelStyle.Render("PID:") + " " + strconv.Itoa(p.Pid) + "\n" +
+		labelStyle.Render("Name:") + " " + p.Name + "\n" +
+		labelStyle.Render("Command with arguments:") + " " + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n" +
+		labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
+
+	return m.viewHeader() + procInfo + "\n"
+}
+
+func (m model) View() string {
+	switch m.mode {
+	case modeViewTable:
+		return m.viewTable()
+	case modeViewProcess:
+		return m.viewProcess()
+	}
+	return ""
 }
 
 func (m *model) sortProcesses(processes []pkg.Process) {
@@ -197,10 +259,38 @@ func (m *model) updateTable(procs []pkg.Process) {
 	m.table.SetRows(rows)
 }
 
+func (m *model) updateTableWithOneExpanded(
+	procs []pkg.Process,
+	pid int) {
+	m.sortProcesses(procs)
+
+	rows := make([]table.Row, len(procs))
+	for i, p := range procs {
+		if p.Pid != pid {
+			rows[i] = table.Row{
+				fmt.Sprintf("%d", p.Pid),
+				fmt.Sprintf("%d", p.RSS),
+				fmt.Sprintf("%.1f", p.CPU),
+				p.Name,
+				p.Args,
+			}
+		} else {
+			rows[i] = table.Row{
+				fmt.Sprintf("%d", p.Pid),
+				p.Name,
+				fmt.Sprintf("%v", p.Env),
+			}
+		}
+
+	}
+	m.table.SetRows(rows)
+}
+
 func main() {
 	m := model{
 		table:   newProcessTable(),
 		sortKey: SortKeyCPU,
+		mode:    modeViewTable,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
