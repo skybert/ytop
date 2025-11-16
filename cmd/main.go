@@ -259,33 +259,6 @@ func (m *model) updateTable(procs []pkg.Process) {
 	m.table.SetRows(rows)
 }
 
-func (m *model) updateTableWithOneExpanded(
-	procs []pkg.Process,
-	pid int) {
-	m.sortProcesses(procs)
-
-	rows := make([]table.Row, len(procs))
-	for i, p := range procs {
-		if p.Pid != pid {
-			rows[i] = table.Row{
-				fmt.Sprintf("%d", p.Pid),
-				fmt.Sprintf("%d", p.RSS),
-				fmt.Sprintf("%.1f", p.CPU),
-				p.Name,
-				p.Args,
-			}
-		} else {
-			rows[i] = table.Row{
-				fmt.Sprintf("%d", p.Pid),
-				p.Name,
-				fmt.Sprintf("%v", p.Env),
-			}
-		}
-
-	}
-	m.table.SetRows(rows)
-}
-
 func main() {
 	m := model{
 		table:   newProcessTable(),
