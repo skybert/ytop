@@ -44,11 +44,12 @@ func (k sortKey) String() string {
 type refreshMsg []pkg.Process
 
 type model struct {
-	table   table.Model
-	sortKey sortKey
-	height  int
-	width   int
-	mode    mode
+	table      table.Model
+	sortKey    sortKey
+	height     int
+	width      int
+	mode       mode
+	humanSizes bool
 }
 
 var updateIntervalSeconds = 2
@@ -109,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmdWidth := max(m.width-30, 20)
 		m.table.SetColumns([]table.Column{
 			{Title: "PID", Width: 7},
-			{Title: "RES", Width: 8},
+			{Title: "RSS", Width: 10},
 			{Title: "%CPU", Width: 5},
 			{Title: "NAME", Width: 20},
 			{Title: "COMMAND", Width: cmdWidth},
@@ -131,6 +132,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.mode == modeViewProcess {
 				m.mode = modeViewTable
 			}
+		case "h":
+			if m.humanSizes {
+				m.humanSizes = false
+			} else {
+				m.humanSizes = true
+			}
+			m.updateTable(internal.Processes())
 		case "N", "n":
 			m.sortKey = SortKeyName
 			m.updateTable(internal.Processes())
@@ -253,13 +261,38 @@ func (m *model) updateTable(procs []pkg.Process) {
 	for i, p := range procs {
 		rows[i] = table.Row{
 			fmt.Sprintf("%d", p.Pid),
-			fmt.Sprintf("%d", p.RSS),
+			m.humanBytes(p.RSS),
 			fmt.Sprintf("%.1f", p.CPU),
 			p.Name,
 			p.Args,
 		}
 	}
 	m.table.SetRows(rows)
+}
+
+func (m *model) humanBytes(bytes uint64) string {
+	if !m.humanSizes {
+		// Default is showing size in bytes
+		return fmt.Sprintf("%v", bytes)
+	}
+	const (
+		KB = 1 << 10
+		MB = 1 << 20
+		GB = 1 << 30
+		TB = 1 << 40
+	)
+	switch {
+	case bytes >= TB:
+		return fmt.Sprintf("%.2f TB", float64(bytes)/float64(TB))
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
 }
 
 func main() {

@@ -59,7 +59,7 @@ func Processes() []pkg.Process {
 			Pid:  int(p.Pid),
 			Name: name,
 			Args: cmd,
-			RSS:  mem.RSS / 1024,
+			RSS:  mem.RSS,
 			CPU:  cpu,
 			Env:  envVars,
 		})
