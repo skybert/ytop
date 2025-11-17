@@ -101,7 +101,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 
-		headerHeight := 3 // top bar height
+		headerHeight := 4 // top bar height
 		tableHeight := max(m.height-headerHeight-1, 5)
 
 		m.table.SetHeight(tableHeight)
@@ -177,6 +177,8 @@ func (m model) viewHeader() string {
 			internal.HumanUptime(),
 			m.sortKey.String(),
 		))
+	cpu := helpStyle.Render("CPU: ") + internal.CPUSummary()
+	memory := helpStyle.Render("Memory: ") + internal.MemorySummary(m.humanSizes)
 	help := helpStyle.Render(
 		fmt.Sprintf(
 			"Sort: %s %s %s | %s ",
@@ -185,7 +187,7 @@ func (m model) viewHeader() string {
 			"n (name)",
 			"quit: q",
 		))
-	return line + "\n" + help + "\n\n"
+	return line + "\n" + cpu + "\n" + memory + "\n" + help + "\n\n"
 
 }
 
@@ -292,24 +294,8 @@ func (m *model) humanBytes(bytes uint64) string {
 		// Default is showing size in bytes
 		return fmt.Sprintf("%v", bytes)
 	}
-	const (
-		KB = 1 << 10
-		MB = 1 << 20
-		GB = 1 << 30
-		TB = 1 << 40
-	)
-	switch {
-	case bytes >= TB:
-		return fmt.Sprintf("%.2f TB", float64(bytes)/float64(TB))
-	case bytes >= GB:
-		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
-	case bytes >= MB:
-		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
-	case bytes >= KB:
-		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
+
+	return pkg.HumanBytes(bytes)
 }
 
 func main() {
