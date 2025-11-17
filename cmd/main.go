@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/pflag"
 	"skybert.net/ytop/internal"
 	"skybert.net/ytop/pkg"
 )
@@ -298,11 +299,25 @@ func (m *model) humanBytes(bytes uint64) string {
 	return pkg.HumanBytes(bytes)
 }
 
+var humanSizes bool
+
+func init() {
+	pflag.BoolVarP(
+		&humanSizes,
+		"human-readable",
+		"h",
+		false,
+		"Human readable sizes in chunks of 1024")
+}
+
 func main() {
+	pflag.Parse()
+
 	m := model{
-		table:   newProcessTable(),
-		sortKey: SortKeyCPU,
-		mode:    modeViewTable,
+		table:      newProcessTable(),
+		sortKey:    SortKeyCPU,
+		mode:       modeViewTable,
+		humanSizes: humanSizes,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
