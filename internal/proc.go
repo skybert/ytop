@@ -32,9 +32,9 @@ func Processes() []pkg.Process {
 			continue
 		}
 		envVars, err := p.Environ()
-		if err != nil {
-			// TODO not sure if we should continue here,
-			// or just not include the env variables.
+		// Environ() isn't implemented yet on macOS, so just
+		// ignore the err. For other errors, skip the process.
+		if err != nil && err.Error() != "not implemented yet" {
 			continue
 		}
 

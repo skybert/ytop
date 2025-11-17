@@ -209,8 +209,11 @@ func (m model) viewProcess() string {
 
 	procInfo := labelStyle.Render("PID:") + " " + strconv.Itoa(p.Pid) + "\n" +
 		labelStyle.Render("Name:") + " " + p.Name + "\n" +
-		labelStyle.Render("Command with arguments:") + " " + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n" +
-		labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
+		labelStyle.Render("Command with arguments:") + " " + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n"
+
+	if len(p.Env) > 0 {
+		procInfo += labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
+	}
 
 	return m.viewHeader() + procInfo + "\n"
 }
