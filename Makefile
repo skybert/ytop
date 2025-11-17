@@ -7,3 +7,7 @@ fmt:
 
 build: fmt
 	go build -o ytop cmd/*.go
+
+install: build
+	mkdir -p ~/.local/bin
+	cp ytop ~/.local/bin/.

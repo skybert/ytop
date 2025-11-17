@@ -55,13 +55,19 @@ func Processes() []pkg.Process {
 			cmd = name
 		}
 
+		created, err := p.CreateTime()
+		if err != nil {
+			continue
+		}
+
 		result = append(result, pkg.Process{
-			Pid:  int(p.Pid),
-			Name: name,
-			Args: cmd,
-			RSS:  mem.RSS,
-			CPU:  cpu,
-			Env:  envVars,
+			Pid:     int(p.Pid),
+			Name:    name,
+			Args:    cmd,
+			RSS:     mem.RSS,
+			CPU:     cpu,
+			Env:     envVars,
+			Created: created,
 		})
 	}
 

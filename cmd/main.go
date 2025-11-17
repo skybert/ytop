@@ -203,6 +203,7 @@ func (m model) viewProcess() string {
 	if err != nil {
 		return ""
 	}
+
 	p := internal.Process(pid)
 
 	labelStyle := lipgloss.NewStyle().
@@ -215,15 +216,27 @@ func (m model) viewProcess() string {
 		return one < two
 	})
 
-	procInfo := labelStyle.Render("PID:") + " " + strconv.Itoa(p.Pid) + "\n" +
-		labelStyle.Render("Name:") + " " + p.Name + "\n" +
-		labelStyle.Render("Command with arguments:") + " " + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n"
+	procInfo := labelStyle.Render("PID: ") + strconv.Itoa(p.Pid) + "\n" +
+		labelStyle.Render("Name: ") + p.Name + "\n" +
+		labelStyle.Render("Created: ") + m.humanDate(p.Created) + "\n" +
+		labelStyle.Render("RSS: ") + m.humanBytes(p.RSS) + "\n" +
+		labelStyle.Render("CPU: ") + fmt.Sprintf("%.1f %%", p.CPU) + "\n" +
+		labelStyle.Render("Command: ") + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n"
 
 	if len(p.Env) > 0 {
 		procInfo += labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
 	}
 
 	return m.viewHeader() + procInfo + "\n"
+}
+
+func (m model) humanDate(millis int64) string {
+	seconds := millis / 1000
+	// Convert remaining milliseconds to nano seconds
+	nanos := (millis % 1000) * 1_000_000
+	t := time.Unix(seconds, nanos)
+
+	return t.Format("2006-01-02 15:04:05 MST")
 }
 
 func (m model) View() string {
@@ -255,6 +268,10 @@ func (m *model) sortProcesses(processes []pkg.Process) {
 }
 
 func (m *model) updateTable(procs []pkg.Process) {
+	if m.mode == modeViewProcess {
+		return
+	}
+
 	m.sortProcesses(procs)
 
 	rows := make([]table.Row, len(procs))
