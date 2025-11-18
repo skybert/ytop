@@ -75,7 +75,9 @@ func newProcessTable() table.Model {
 		{Title: "PID", Width: 7},
 		{Title: "Mem (KB)", Width: 10},
 		{Title: "CPU", Width: 7},
-		{Title: "Command", Width: 50},
+	}
+	if !simpleView {
+		columns = append(columns, table.Column{Title: "Command", Width: 50})
 	}
 
 	t := table.New(
@@ -113,13 +115,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Expand Command column to fill available width
 		cmdWidth := max(m.width-30, 20)
-		m.table.SetColumns([]table.Column{
+		columns := []table.Column{
 			{Title: "PID", Width: 7},
 			{Title: "RSS", Width: 10},
 			{Title: "%CPU", Width: 5},
 			{Title: "NAME", Width: 20},
-			{Title: "COMMAND", Width: cmdWidth},
-		})
+		}
+		if !simpleView {
+			columns = append(columns, table.Column{Title: "COMMAND", Width: cmdWidth})
+		}
+		m.table.SetColumns(columns)
 
 		return m, nil
 
@@ -283,13 +288,17 @@ func (m *model) updateTable(procs []pkg.Process) {
 
 	rows := make([]table.Row, len(procs))
 	for i, p := range procs {
-		rows[i] = table.Row{
+		row := table.Row{
 			fmt.Sprintf("%d", p.Pid),
 			m.humanBytes(p.RSS),
 			fmt.Sprintf("%.1f", p.CPU),
 			p.Name,
-			p.Args,
 		}
+		if !simpleView {
+			row = append(row, p.Args)
+		}
+		rows[i] = row
+
 	}
 	m.table.SetRows(rows)
 }
@@ -318,8 +327,8 @@ func init() {
 		"Human readable sizes in chunks of 1024")
 	pflag.BoolVarP(&showVersion, "version", "v", false, "Show version")
 	pflag.BoolVarP(&simpleView, "simple", "s", false, "Simple view, less info")
-	pflag.StringVar(&bgSelColour, "sel-bg", "#222235", "Selection background colour")
-	pflag.StringVar(&bgSelColour, "sel-fg", "#06c993", "Selection foreground colour")
+	pflag.StringVar(&fgSelColour, "sel-fg", "#222235", "Selection background colour")
+	pflag.StringVar(&bgSelColour, "sel-bg", "#06c993", "Selection foreground colour")
 }
 
 func main() {
