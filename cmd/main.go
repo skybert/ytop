@@ -54,6 +54,7 @@ type model struct {
 	width      int
 	mode       mode
 	humanSizes bool
+	simpleView bool
 }
 
 var updateIntervalSeconds = 2
@@ -62,8 +63,8 @@ func newStyles() table.Styles {
 	s := table.DefaultStyles()
 
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("#222235")).
-		Background(lipgloss.Color("#06c993")).
+		Foreground(lipgloss.Color(fgSelColour)).
+		Background(lipgloss.Color(bgSelColour)).
 		Bold(true)
 
 	return s
@@ -304,6 +305,9 @@ func (m *model) humanBytes(bytes uint64) string {
 
 var humanSizes bool
 var showVersion bool
+var simpleView bool
+var bgSelColour string
+var fgSelColour string
 
 func init() {
 	pflag.BoolVarP(
@@ -313,6 +317,9 @@ func init() {
 		false,
 		"Human readable sizes in chunks of 1024")
 	pflag.BoolVarP(&showVersion, "version", "v", false, "Show version")
+	pflag.BoolVarP(&simpleView, "simple", "s", false, "Simple view, less info")
+	pflag.StringVar(&bgSelColour, "sel-bg", "#222235", "Selection background colour")
+	pflag.StringVar(&bgSelColour, "sel-fg", "#06c993", "Selection foreground colour")
 }
 
 func main() {
@@ -327,6 +334,7 @@ func main() {
 		sortKey:    SortKeyCPU,
 		mode:       modeViewTable,
 		humanSizes: humanSizes,
+		simpleView: simpleView,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
