@@ -16,6 +16,9 @@ import (
 	"skybert.net/ytop/pkg"
 )
 
+// Populated at build time
+var Version = "dev"
+
 type mode int
 type sortKey int
 
@@ -300,6 +303,7 @@ func (m *model) humanBytes(bytes uint64) string {
 }
 
 var humanSizes bool
+var showVersion bool
 
 func init() {
 	pflag.BoolVarP(
@@ -308,10 +312,15 @@ func init() {
 		"h",
 		false,
 		"Human readable sizes in chunks of 1024")
+	pflag.BoolVarP(&showVersion, "version", "v", false, "Show version")
 }
 
 func main() {
 	pflag.Parse()
+	if showVersion {
+		fmt.Printf("ytop version: %v\n", Version)
+		os.Exit(0)
+	}
 
 	m := model{
 		table:      newProcessTable(),
