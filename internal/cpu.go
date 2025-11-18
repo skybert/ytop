@@ -15,5 +15,5 @@ func CPUSummary() string {
 	return fmt.Sprintf(
 		"%v %v MHz",
 		infos[0].ModelName,
-		infos[2].Mhz)
+		infos[0].Mhz)
 }
