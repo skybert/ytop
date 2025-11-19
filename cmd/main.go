@@ -233,7 +233,7 @@ func (m model) viewProcess() string {
 		labelStyle.Render("Created: ") + m.humanDate(p.Created) + "\n" +
 		labelStyle.Render("RSS: ") + m.humanBytes(p.RSS) + "\n" +
 		labelStyle.Render("CPU: ") + fmt.Sprintf("%.1f %%", p.CPU) + "\n" +
-		labelStyle.Render("Command: ") + strings.ReplaceAll(p.Args, " ", "\n   ") + "\n"
+		labelStyle.Render("Command: ") + strings.ReplaceAll(p.Args, " -", "\n   -") + "\n"
 
 	if len(p.Env) > 0 {
 		procInfo += labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
