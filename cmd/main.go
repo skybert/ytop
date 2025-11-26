@@ -71,14 +71,7 @@ func newStyles() table.Styles {
 }
 
 func newProcessTable() table.Model {
-	columns := []table.Column{
-		{Title: "PID", Width: 7},
-		{Title: "Mem (KB)", Width: 10},
-		{Title: "CPU", Width: 7},
-	}
-	if !simpleView {
-		columns = append(columns, table.Column{Title: "Command", Width: 50})
-	}
+	columns := internal.TableColumns(simpleView, 20, 20)
 
 	t := table.New(
 		table.WithColumns(columns),
@@ -116,18 +109,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Expand Command column to fill available width
 		nameWidth := 20
 		cmdWidth := max(m.width-30, 20)
-		columns := []table.Column{
-			{Title: "PID", Width: 7},
-			{Title: "RSS", Width: 10},
-			{Title: "%CPU", Width: 5},
-		}
-
-		if simpleView {
-			columns = append(columns, table.Column{Title: "NAME", Width: nameWidth + cmdWidth})
-		} else {
-			columns = append(columns, table.Column{Title: "NAME", Width: nameWidth})
-			columns = append(columns, table.Column{Title: "COMMAND", Width: cmdWidth})
-		}
+		columns := internal.TableColumns(simpleView, nameWidth, cmdWidth)
 
 		m.table.SetColumns(columns)
 
