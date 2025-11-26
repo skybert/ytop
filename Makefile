@@ -1,6 +1,6 @@
 
 run: build
-	./ytop
+	./build/ytop
 
 fmt:
 	gofmt -s -w ./cmd ./internal
@@ -10,8 +10,9 @@ version ?= $(shell git describe --tags --always --dirty)
 
 .phony: build
 build: fmt
+	mkdir build
 	go build \
-	  -o ytop \
+	  -o build/ytop \
 	  -ldflags "-X main.Version=$(version)" \
 	  cmd/*.go
 
