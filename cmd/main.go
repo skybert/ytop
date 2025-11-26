@@ -114,16 +114,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(tableHeight)
 
 		// Expand Command column to fill available width
+		nameWidth := 20
 		cmdWidth := max(m.width-30, 20)
 		columns := []table.Column{
 			{Title: "PID", Width: 7},
 			{Title: "RSS", Width: 10},
 			{Title: "%CPU", Width: 5},
-			{Title: "NAME", Width: 20},
 		}
-		if !simpleView {
+
+		if simpleView {
+			columns = append(columns, table.Column{Title: "NAME", Width: nameWidth + cmdWidth})
+		} else {
+			columns = append(columns, table.Column{Title: "NAME", Width: nameWidth})
 			columns = append(columns, table.Column{Title: "COMMAND", Width: cmdWidth})
 		}
+
 		m.table.SetColumns(columns)
 
 		return m, nil
