@@ -3,301 +3,32 @@ package main
 import (
 	"fmt"
 	"os"
-	"sort"
-	"strconv"
-	"strings"
+	"runtime/debug"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/pflag"
-	"skybert.net/ytop/internal"
 	"skybert.net/ytop/pkg"
 )
 
 // Populated at build time
 var Version = "dev"
 
-type mode int
-type sortKey int
+type (
+	refreshMsg []pkg.Process
+	sortKey    int
+	mode       int
+)
 
 const (
+	headerHeight          = 5
+	updateIntervalSeconds = 2
+
 	modeViewTable mode = iota
 	modeViewProcess
+	modeSearchProcess
 )
-
-const (
-	SortKeyCPU sortKey = iota
-	SortKeyMemory
-	SortKeyName
-)
-
-func (k sortKey) String() string {
-	switch k {
-	case SortKeyCPU:
-		return "cpu"
-	case SortKeyName:
-		return "name"
-	case SortKeyMemory:
-		return "memory"
-	}
-	return "unknown"
-}
-
-type refreshMsg []pkg.Process
-
-type model struct {
-	table      table.Model
-	sortKey    sortKey
-	height     int
-	width      int
-	mode       mode
-	humanSizes bool
-	simpleView bool
-}
-
-var updateIntervalSeconds = 2
-
-func newStyles() table.Styles {
-	s := table.DefaultStyles()
-
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color(fgSelColour)).
-		Background(lipgloss.Color(bgSelColour)).
-		Bold(true)
-
-	return s
-}
-
-func newProcessTable() table.Model {
-	columns := internal.TableColumns(simpleView, 20, 20)
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithFocused(true),
-	)
-
-	t.SetStyles(newStyles())
-	return t
-}
-
-func (m model) Init() tea.Cmd {
-	return refreshCmd()
-}
-
-func refreshCmd() tea.Cmd {
-	return tea.Tick(
-		time.Second*time.Duration(updateIntervalSeconds),
-		func(t time.Time) tea.Msg {
-			return refreshMsg(internal.Processes())
-		})
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-
-		headerHeight := 4 // top bar height
-		tableHeight := max(m.height-headerHeight-1, 5)
-
-		m.table.SetHeight(tableHeight)
-
-		// Expand Command column to fill available width
-		nameWidth := 20
-		cmdWidth := max(m.width-30, 20)
-		columns := internal.TableColumns(simpleView, nameWidth, cmdWidth)
-
-		m.table.SetColumns(columns)
-
-		return m, nil
-
-	case tea.KeyMsg:
-		switch msg.String() {
-
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "enter":
-			selectedRowContainsData := len(m.table.SelectedRow()) > 0
-			if m.mode == modeViewTable && selectedRowContainsData {
-				m.mode = modeViewProcess
-			}
-		case "esc":
-			if m.mode == modeViewProcess {
-				m.mode = modeViewTable
-			}
-		case "h":
-			if m.humanSizes {
-				m.humanSizes = false
-			} else {
-				m.humanSizes = true
-			}
-			m.updateTable(internal.Processes())
-		case "N", "n":
-			m.sortKey = SortKeyName
-			m.updateTable(internal.Processes())
-		case "M", "m":
-			m.sortKey = SortKeyMemory
-			m.updateTable(internal.Processes())
-		case "P", "p":
-			m.sortKey = SortKeyCPU
-			m.updateTable(internal.Processes())
-		case "ctrl+p", "up", "k":
-			m.table.MoveUp(1)
-		case "ctrl+n", "down", "j":
-			m.table.MoveDown(1)
-		}
-
-	case refreshMsg:
-		m.updateTable([]pkg.Process(msg))
-		return m, refreshCmd()
-	}
-
-	return m, nil
-}
-
-func (m model) viewHeader() string {
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Padding(0, 1)
-	helpStyle := lipgloss.NewStyle().
-		Bold(false).
-		Padding(0, 1)
-
-	line := headerStyle.Render(
-		fmt.Sprintf(
-			"ytop — %s up %s | sorted by %s",
-			time.Now().Format("15:04:05"),
-			internal.HumanUptime(),
-			m.sortKey.String(),
-		))
-	cpu := helpStyle.Render("CPU: ") + internal.CPUSummary()
-	memory := helpStyle.Render("Memory: ") + internal.MemorySummary(m.humanSizes)
-	help := helpStyle.Render(
-		fmt.Sprintf(
-			"Sort: %s %s %s | %s ",
-			"p (cpu)",
-			"m (mem)",
-			"n (name)",
-			"quit: q",
-		))
-	return line + "\n" + cpu + "\n" + memory + "\n" + help + "\n\n"
-
-}
-
-func (m model) viewTable() string {
-	return m.viewHeader() + m.table.View()
-
-}
-
-func (m model) viewProcess() string {
-	row := m.table.SelectedRow()
-	if len(row) == 0 {
-		return ""
-	}
-	pid, err := strconv.Atoi(row[0])
-	if err != nil {
-		return ""
-	}
-
-	p := internal.Process(pid)
-
-	labelStyle := lipgloss.NewStyle().
-		Bold(true).
-		Padding(0, 1)
-
-	sort.Slice(p.Env, func(i, j int) bool {
-		one := p.Env[i]
-		two := p.Env[j]
-		return one < two
-	})
-
-	procInfo := labelStyle.Render("PID: ") + strconv.Itoa(p.Pid) + "\n" +
-		labelStyle.Render("Name: ") + p.Name + "\n" +
-		labelStyle.Render("Created: ") + m.humanDate(p.Created) + "\n" +
-		labelStyle.Render("RSS: ") + m.humanBytes(p.RSS) + "\n" +
-		labelStyle.Render("CPU: ") + fmt.Sprintf("%.1f %%", p.CPU) + "\n" +
-		labelStyle.Render("Command: ") + strings.ReplaceAll(p.Args, " -", "\n   -") + "\n"
-
-	if len(p.Env) > 0 {
-		procInfo += labelStyle.Render("Unix env vars:") + " " + strings.Join(p.Env, "\n  ")
-	}
-
-	return m.viewHeader() + procInfo + "\n"
-}
-
-func (m model) humanDate(millis int64) string {
-	seconds := millis / 1000
-	// Convert remaining milliseconds to nano seconds
-	nanos := (millis % 1000) * 1_000_000
-	t := time.Unix(seconds, nanos)
-
-	return t.Format("2006-01-02 15:04:05 MST")
-}
-
-func (m model) View() string {
-	switch m.mode {
-	case modeViewTable:
-		return m.viewTable()
-	case modeViewProcess:
-		return m.viewProcess()
-	}
-	return ""
-}
-
-func (m *model) sortProcesses(processes []pkg.Process) {
-	sort.Slice(processes, func(i, j int) bool {
-		pi := processes[i]
-		pj := processes[j]
-
-		switch m.sortKey {
-		case SortKeyMemory:
-			return pi.RSS > pj.RSS
-		case SortKeyCPU:
-			return pi.CPU > pj.CPU
-		case SortKeyName:
-			// Sort name ascending
-			return pi.Name < pj.Name
-		}
-		return false
-	})
-}
-
-func (m *model) updateTable(procs []pkg.Process) {
-	if m.mode == modeViewProcess {
-		return
-	}
-
-	m.sortProcesses(procs)
-
-	rows := make([]table.Row, len(procs))
-	for i, p := range procs {
-		row := table.Row{
-			fmt.Sprintf("%d", p.Pid),
-			m.humanBytes(p.RSS),
-			fmt.Sprintf("%.1f", p.CPU),
-			p.Name,
-		}
-		if !simpleView {
-			row = append(row, p.Args)
-		}
-		rows[i] = row
-
-	}
-	m.table.SetRows(rows)
-}
-
-func (m *model) humanBytes(bytes uint64) string {
-	if !m.humanSizes {
-		// Default is showing size in bytes
-		return fmt.Sprintf("%v", bytes)
-	}
-
-	return pkg.HumanBytes(bytes)
-}
 
 var humanSizes bool
 var showVersion bool
@@ -318,6 +49,111 @@ func init() {
 	pflag.StringVar(&bgSelColour, "sel-bg", "#06c993", "Selection foreground colour")
 }
 
+type model struct {
+	conf       pkg.YTopConf
+	height     int
+	humanSizes bool
+	mode       mode
+	processes  []pkg.Process
+	simpleView bool
+	sortKey    pkg.SortKey
+	table      table.Model
+	width      int
+}
+
+func (m model) Init() tea.Cmd {
+	return m.refreshCmd()
+}
+
+func (m model) refreshCmd() tea.Cmd {
+	return tea.Tick(
+		time.Second*time.Duration(updateIntervalSeconds),
+		func(t time.Time) tea.Msg {
+			m.processes = Processes()
+			return refreshMsg(m.processes)
+		})
+}
+
+func (m *model) updateTable(procs []pkg.Process) {
+	SortProcesses(procs, m.sortKey)
+
+	rows := make([]table.Row, len(procs))
+	for i, p := range procs {
+		row := table.Row{
+			fmt.Sprintf("%d", p.Pid),
+			m.humanBytes(p.RSS),
+			fmt.Sprintf("%.1f", p.CPU),
+			p.Name,
+		}
+		if !m.simpleView {
+			row = append(row, p.Args)
+		}
+		rows[i] = row
+	}
+
+	m.table.SetRows(rows)
+}
+
+func (m *model) humanBytes(bytes uint64) string {
+	if !m.humanSizes {
+		// Default is showing size in bytes
+		return fmt.Sprintf("%v", bytes)
+	}
+
+	return pkg.HumanBytes(bytes)
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.table = m.createTable()
+		m.table.SetHeight(max(msg.Height-headerHeight-1, 5))
+		columns := TableColumns(m.simpleView, msg.Width)
+		m.table.SetColumns(columns)
+		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "h":
+			m.humanSizes = !m.humanSizes
+			m.updateTable(Processes())
+		case "N", "n":
+			m.sortKey = pkg.SortKeyName
+			m.updateTable(Processes())
+		case "M", "m":
+			m.sortKey = pkg.SortKeyMemory
+			m.updateTable(Processes())
+		case "P", "p":
+			m.sortKey = pkg.SortKeyCPU
+			m.updateTable(Processes())
+		case "S", "s":
+			m.simpleView = !m.simpleView
+			m.table = m.createTable()
+			m.table.SetHeight(m.height - headerHeight)
+			m.updateTable(Processes())
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "ctrl+p", "up", "k":
+			m.table.MoveUp(1)
+		case "ctrl+n", "down", "j":
+			m.table.MoveDown(1)
+		}
+	case refreshMsg:
+		m.updateTable([]pkg.Process(msg))
+		return m, m.refreshCmd()
+	}
+
+	return m, nil
+}
+
+func (m model) View() string {
+	return ViewHeader(m.sortKey, m.humanSizes) +
+		"\n" +
+		m.table.View()
+}
+
 func main() {
 	pflag.Parse()
 	if showVersion {
@@ -326,16 +162,23 @@ func main() {
 	}
 
 	m := model{
-		table:      newProcessTable(),
-		sortKey:    SortKeyCPU,
-		mode:       modeViewTable,
+		conf: pkg.YTopConf{
+			HeaderForeground:   "",
+			HeaderBackground:   "",
+			SelectedForeground: fgSelColour,
+			SelectedBackground: bgSelColour,
+			SimpleView:         simpleView,
+		},
+		table:      table.Model{},
 		humanSizes: humanSizes,
 		simpleView: simpleView,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Println("Error:", err)
+		fmt.Printf("%v: %v\n", "There was an error", err)
+		fmt.Printf("%v\n", debug.Stack())
 		os.Exit(1)
 	}
+
 }

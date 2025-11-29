@@ -1,6 +1,8 @@
-package internal
+package main
 
 import (
+	"sort"
+
 	psutil "github.com/shirou/gopsutil/v4/process"
 	"skybert.net/ytop/pkg"
 )
@@ -14,6 +16,24 @@ func Process(pid int) *pkg.Process {
 	}
 
 	return nil
+}
+
+func SortProcesses(processes []pkg.Process, sortKey pkg.SortKey) {
+	sort.Slice(processes, func(i, j int) bool {
+		pi := processes[i]
+		pj := processes[j]
+
+		switch sortKey {
+		case pkg.SortKeyMemory:
+			return pi.RSS > pj.RSS
+		case pkg.SortKeyCPU:
+			return pi.CPU > pj.CPU
+		case pkg.SortKeyName:
+			// Sort name ascending
+			return pi.Name < pj.Name
+		}
+		return false
+	})
 }
 
 // Processes returns the current running processes, represented using
