@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/pflag"
+	"skybert.net/ytop/internal"
+	"skybert.net/ytop/pkg"
 )
 
 // Populated at build time
@@ -34,70 +36,84 @@ func init() {
 }
 
 type model struct {
-	table table.Model
+	table      table.Model
+	processes  []pkg.Process
+	humanSizes bool
 }
 
-func (m model) Init() tea.Cmd { return nil }
+func (m model) Init() tea.Cmd {
+	return m.refreshCmd()
+}
+
+func (m model) refreshCmd() tea.Cmd {
+	return tea.Tick(
+		time.Second*time.Duration(updateIntervalSeconds),
+		func(t time.Time) tea.Msg {
+			m.processes = internal.Processes()
+			return refreshMsg(m.processes)
+		})
+}
+
+const (
+	headerHeight          = 4
+	updateIntervalSeconds = 2
+)
+
+type refreshMsg []pkg.Process
+
+func (m model) updateTable(procs []pkg.Process) {
+	rows := make([]table.Row, len(procs))
+	for i, p := range procs {
+		row := table.Row{
+			fmt.Sprintf("%d", p.Pid),
+			m.humanBytes(p.RSS),
+			fmt.Sprintf("%.1f", p.CPU),
+			p.Name,
+		}
+		if !simpleView {
+			row = append(row, p.Args)
+		}
+		rows[i] = row
+	}
+	m.table.SetRows(rows)
+}
+
+func (m *model) humanBytes(bytes uint64) string {
+	if !m.humanSizes {
+		// Default is showing size in bytes
+		return fmt.Sprintf("%v", bytes)
+	}
+
+	return pkg.HumanBytes(bytes)
+}
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width)
-		m.table.SetHeight(msg.Height - 1)
+		m.table.SetHeight(msg.Height - headerHeight)
+		columns := internal.TableColumns(simpleView, msg.Width)
+		m.table.SetColumns(columns)
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
+	case refreshMsg:
+		m.updateTable([]pkg.Process(msg))
+		return m, m.refreshCmd()
 	}
 
 	return m, cmd
 }
 
 func (m model) View() string {
-	return "\n" + m.table.View() + "\n"
-}
-
-func CreateTable() table.Model {
-	columns := []table.Column{
-		{Title: "PID", Width: 4},
-		{Title: "RSS", Width: 10},
-		{Title: "%CPU", Width: 10},
-		{Title: "NAME", Width: 10},
-	}
-	if !simpleView {
-		columns = append(columns, table.Column{Title: "CMD", Width: 20})
-	}
-	rows := []table.Row{
-		{"1", "Tokyo", "Japan", "37,274,000"},
-		{"2", "Delhi", "India", "32,065,760"},
-	}
-	if !simpleView {
-		rows = []table.Row{
-			{"1", "Tokyo", "Japan", "37,274,000", "command line"},
-			{"2", "Delhi", "India", "32,065,760", "command line"},
-		}
-
-	}
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(rows),
-		table.WithFocused(true),
-	)
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
-	return t
+	header := "ytop"
+	info := "foo bar baz info"
+	return header + "\n" + info + "\n\n" + m.table.View() + "\n"
 }
 
 func main() {
@@ -107,7 +123,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	p := tea.NewProgram(model{table: CreateTable()})
+	p := tea.NewProgram(
+		model{table: internal.CreateTable(simpleView, 72)})
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("%v: %v\n", "There was an error", err)
 		fmt.Printf("%v\n", debug.Stack())
