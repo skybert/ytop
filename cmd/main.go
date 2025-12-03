@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"runtime/debug"
 	"time"
@@ -75,7 +76,10 @@ func (m model) updateTable(procs []pkg.Process) {
 		}
 		rows[i] = row
 	}
+
+	log.Default().Println(fmt.Sprintf("a row has %v columns", len(rows[0])))
 	m.table.SetRows(rows)
+	log.Default().Println(fmt.Sprintf("updated table with %v rows", len(rows)))
 }
 
 func (m *model) humanBytes(bytes uint64) string {
@@ -88,11 +92,10 @@ func (m *model) humanBytes(bytes uint64) string {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width)
-		m.table.SetHeight(msg.Height - headerHeight)
+		m.table.SetHeight(max(msg.Height-headerHeight-1, 5))
 		columns := internal.TableColumns(simpleView, msg.Width)
 		m.table.SetColumns(columns)
 		return m, nil
@@ -107,24 +110,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.refreshCmd()
 	}
 
-	return m, cmd
+	return m, nil
 }
 
 func (m model) View() string {
 	header := "ytop"
 	info := "foo bar baz info"
-	return header + "\n" + info + "\n\n" + m.table.View() + "\n"
+	return header + "\n" + info + "\n\n" + m.table.View()
 }
 
 func main() {
+
+	if len(os.Getenv("DEBUG")) > 0 {
+		f, err := tea.LogToFile("debug.log", "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+	}
+
 	pflag.Parse()
 	if showVersion {
 		fmt.Printf("ytop version: %v\n", Version)
 		os.Exit(0)
 	}
 
-	p := tea.NewProgram(
-		model{table: internal.CreateTable(simpleView, 72)})
+	m := model{
+		table: internal.CreateTable(simpleView, 80),
+	}
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("%v: %v\n", "There was an error", err)
 		fmt.Printf("%v\n", debug.Stack())
