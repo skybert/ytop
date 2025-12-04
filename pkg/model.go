@@ -1,5 +1,27 @@
 package pkg
 
+type (
+	SortKey int
+)
+
+func (sk SortKey) String() string {
+	switch sk {
+	case SortKeyCPU:
+		return "cpu"
+	case SortKeyName:
+		return "name"
+	case SortKeyMemory:
+		return "memory"
+	}
+	return "unknown"
+}
+
+const (
+	SortKeyCPU SortKey = iota
+	SortKeyMemory
+	SortKeyName
+)
+
 type Process struct {
 	Pid     int
 	Name    string

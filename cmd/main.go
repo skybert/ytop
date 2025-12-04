@@ -28,23 +28,7 @@ const (
 
 	modeViewTable mode = iota
 	modeViewProcess
-
-	SortKeyCPU sortKey = iota
-	SortKeyMemory
-	SortKeyName
 )
-
-func (k sortKey) String() string {
-	switch k {
-	case SortKeyCPU:
-		return "cpu"
-	case SortKeyName:
-		return "name"
-	case SortKeyMemory:
-		return "memory"
-	}
-	return "unknown"
-}
 
 var humanSizes bool
 var showVersion bool
@@ -70,6 +54,8 @@ type model struct {
 	processes  []pkg.Process
 	humanSizes bool
 	mode       mode
+	sortKey    pkg.SortKey
+	simpleView bool
 }
 
 func (m model) Init() tea.Cmd {
@@ -86,6 +72,8 @@ func (m model) refreshCmd() tea.Cmd {
 }
 
 func (m *model) updateTable(procs []pkg.Process) {
+	internal.SortProcesses(procs, m.sortKey)
+
 	rows := make([]table.Row, len(procs))
 	for i, p := range procs {
 		row := table.Row{
@@ -94,7 +82,7 @@ func (m *model) updateTable(procs []pkg.Process) {
 			fmt.Sprintf("%.1f", p.CPU),
 			p.Name,
 		}
-		if !simpleView {
+		if !m.simpleView {
 			row = append(row, p.Args)
 		}
 		rows[i] = row
@@ -117,12 +105,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.table.SetWidth(msg.Width)
 		m.table.SetHeight(max(msg.Height-headerHeight-1, 5))
-		columns := internal.TableColumns(simpleView, msg.Width)
+		columns := internal.TableColumns(m.simpleView, msg.Width)
 		m.table.SetColumns(columns)
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "h":
+			m.humanSizes = !m.humanSizes
+			m.updateTable(internal.Processes())
+		case "N", "n":
+			m.sortKey = pkg.SortKeyName
+			m.updateTable(internal.Processes())
+		case "M", "m":
+			m.sortKey = pkg.SortKeyMemory
+			m.updateTable(internal.Processes())
+		case "P", "p":
+			m.sortKey = pkg.SortKeyCPU
+			m.updateTable(internal.Processes())
+		case "S", "s":
+			m.simpleView = !m.simpleView
+			m.updateTable(internal.Processes())
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "ctrl+p", "up", "k":
@@ -154,6 +157,7 @@ func main() {
 	m := model{
 		table:      internal.CreateTable(simpleView, 80),
 		humanSizes: humanSizes,
+		simpleView: simpleView,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
