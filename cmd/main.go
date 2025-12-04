@@ -130,7 +130,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "S", "s":
 			m.simpleView = !m.simpleView
 			m.table = internal.CreateTable(m.simpleView, m.width)
-			m.table.SetHeight(m.height)
+			m.table.SetHeight(m.height - headerHeight)
 			m.updateTable(internal.Processes())
 		case "ctrl+c", "q":
 			return m, tea.Quit
