@@ -23,7 +23,7 @@ type (
 )
 
 const (
-	headerHeight          = 4
+	headerHeight          = 5
 	updateIntervalSeconds = 2
 
 	modeViewTable mode = iota
@@ -50,12 +50,14 @@ func init() {
 }
 
 type model struct {
-	table      table.Model
-	processes  []pkg.Process
+	height     int
 	humanSizes bool
 	mode       mode
-	sortKey    pkg.SortKey
+	processes  []pkg.Process
 	simpleView bool
+	sortKey    pkg.SortKey
+	table      table.Model
+	width      int
 }
 
 func (m model) Init() tea.Cmd {
@@ -103,7 +105,9 @@ func (m *model) humanBytes(bytes uint64) string {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.table.SetWidth(msg.Width)
+		m.width = msg.Width
+		m.height = msg.Height
+		m.table = internal.CreateTable(m.simpleView, msg.Width)
 		m.table.SetHeight(max(msg.Height-headerHeight-1, 5))
 		columns := internal.TableColumns(m.simpleView, msg.Width)
 		m.table.SetColumns(columns)
@@ -125,6 +129,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTable(internal.Processes())
 		case "S", "s":
 			m.simpleView = !m.simpleView
+			m.table = internal.CreateTable(m.simpleView, m.width)
+			m.table.SetHeight(m.height)
 			m.updateTable(internal.Processes())
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -142,9 +148,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	header := "ytop"
-	info := "foo bar baz info"
-	return header + "\n" + info + "\n\n" + m.table.View()
+	return internal.ViewHeader(m.sortKey, m.humanSizes) +
+		"\n" +
+		m.table.View()
 }
 
 func main() {
