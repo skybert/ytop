@@ -16,6 +16,36 @@ import (
 // Populated at build time
 var Version = "dev"
 
+type (
+	refreshMsg []pkg.Process
+	sortKey    int
+	mode       int
+)
+
+const (
+	headerHeight          = 4
+	updateIntervalSeconds = 2
+
+	modeViewTable mode = iota
+	modeViewProcess
+
+	SortKeyCPU sortKey = iota
+	SortKeyMemory
+	SortKeyName
+)
+
+func (k sortKey) String() string {
+	switch k {
+	case SortKeyCPU:
+		return "cpu"
+	case SortKeyName:
+		return "name"
+	case SortKeyMemory:
+		return "memory"
+	}
+	return "unknown"
+}
+
 var humanSizes bool
 var showVersion bool
 var simpleView bool
@@ -39,6 +69,7 @@ type model struct {
 	table      table.Model
 	processes  []pkg.Process
 	humanSizes bool
+	mode       mode
 }
 
 func (m model) Init() tea.Cmd {
@@ -53,13 +84,6 @@ func (m model) refreshCmd() tea.Cmd {
 			return refreshMsg(m.processes)
 		})
 }
-
-const (
-	headerHeight          = 4
-	updateIntervalSeconds = 2
-)
-
-type refreshMsg []pkg.Process
 
 func (m *model) updateTable(procs []pkg.Process) {
 	rows := make([]table.Row, len(procs))
@@ -101,6 +125,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "ctrl+p", "up", "k":
+			m.table.MoveUp(1)
+		case "ctrl+n", "down", "j":
+			m.table.MoveDown(1)
 		}
 	case refreshMsg:
 		m.updateTable([]pkg.Process(msg))
@@ -124,7 +152,8 @@ func main() {
 	}
 
 	m := model{
-		table: internal.CreateTable(simpleView, 80),
+		table:      internal.CreateTable(simpleView, 80),
+		humanSizes: humanSizes,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
