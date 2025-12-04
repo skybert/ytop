@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime/debug"
 	"time"
@@ -62,7 +61,7 @@ const (
 
 type refreshMsg []pkg.Process
 
-func (m model) updateTable(procs []pkg.Process) {
+func (m *model) updateTable(procs []pkg.Process) {
 	rows := make([]table.Row, len(procs))
 	for i, p := range procs {
 		row := table.Row{
@@ -77,9 +76,7 @@ func (m model) updateTable(procs []pkg.Process) {
 		rows[i] = row
 	}
 
-	log.Default().Println(fmt.Sprintf("a row has %v columns", len(rows[0])))
 	m.table.SetRows(rows)
-	log.Default().Println(fmt.Sprintf("updated table with %v rows", len(rows)))
 }
 
 func (m *model) humanBytes(bytes uint64) string {
@@ -120,16 +117,6 @@ func (m model) View() string {
 }
 
 func main() {
-
-	if len(os.Getenv("DEBUG")) > 0 {
-		f, err := tea.LogToFile("debug.log", "debug")
-		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-		}
-		defer f.Close()
-	}
-
 	pflag.Parse()
 	if showVersion {
 		fmt.Printf("ytop version: %v\n", Version)
