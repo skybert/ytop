@@ -3,7 +3,7 @@ run: build
 	./build/ytop
 
 fmt:
-	gofmt -s -w ./cmd ./internal
+	gofmt -s -w ./cmd ./pkg
 
 .phony: version
 version ?= $(shell git describe --tags --always --dirty)
