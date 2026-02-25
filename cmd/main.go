@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/pflag"
 	"skybert.net/ytop/pkg"
@@ -25,8 +29,10 @@ const (
 )
 
 var bgColour string
+var bgHeaderColour string
 var bgSelColour string
 var fgColour string
+var fgHeaderColour string
 var fgSelColour string
 var humanSizes bool
 var showVersion bool
@@ -43,19 +49,24 @@ func init() {
 	pflag.BoolVarP(&simpleView, "simple", "s", false, "Simple view, less info")
 	pflag.StringVar(&fgSelColour, "sel-fg", "#222235", "Selection background colour")
 	pflag.StringVar(&bgSelColour, "sel-bg", "#06c993", "Selection foreground colour")
+	pflag.StringVar(&fgHeaderColour, "header-fg", "#000000", "Header foreground colour")
+	pflag.StringVar(&bgHeaderColour, "header-bg", "#06c993", "Header background colour")
 	pflag.StringVar(&bgColour, "bg", "#222235", "Background colour")
 	pflag.StringVar(&fgColour, "fg", "#b8c0d4", "Foreground colour")
 }
 
 type model struct {
-	conf       pkg.YTopConf
-	height     int
-	humanSizes bool
-	processes  []pkg.Process
-	simpleView bool
-	sortKey    pkg.SortKey
-	table      *table.Table
-	width      int
+	conf        pkg.YTopConf
+	height      int
+	humanSizes  bool
+	processes   []pkg.Process
+	searchShow  bool
+	searchQuery string
+	searchInput textinput.Model
+	simpleView  bool
+	sortKey     pkg.SortKey
+	table       *table.Table
+	width       int
 }
 
 func (m model) Init() tea.Cmd {
@@ -74,8 +85,20 @@ func (m model) refreshCmd() tea.Cmd {
 func (m *model) updateTable(procs []pkg.Process) {
 	SortProcesses(procs, m.sortKey)
 
-	rows := make([][]string, len(procs))
-	for i, p := range procs {
+	procsToInclude := make([]pkg.Process, 0)
+	for _, p := range procs {
+		if m.searchQuery != "" {
+			if !strings.Contains(
+				strings.ToLower(p.Args),
+				strings.ToLower(m.searchQuery)) {
+				continue
+			}
+		}
+		procsToInclude = append(procsToInclude, p)
+	}
+
+	rows := make([][]string, len(procsToInclude))
+	for i, p := range procsToInclude {
 		row := []string{
 			fmt.Sprintf("%d", p.Pid),
 			m.humanBytes(p.RSS),
@@ -101,6 +124,7 @@ func (m *model) humanBytes(bytes uint64) string {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -112,7 +136,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		if m.searchShow {
+			var cmd tea.Cmd
+			m.searchInput, cmd = m.searchInput.Update(msg)
+			cmds = append(cmds, cmd)
+
+			switch msg.String() {
+			case "enter":
+				m.searchInput.SetValue("")
+				m.searchShow = false
+				log.Println("You searched for: " + m.searchQuery)
+			case "esc":
+				m.searchShow = false
+				m.searchInput.SetValue("")
+				m.searchQuery = ""
+				m.updateTable(Processes())
+			default:
+				m.searchQuery = m.searchInput.Value()
+				m.updateTable(Processes())
+			}
+
+			return m, tea.Batch(cmds...)
+		}
+
 		switch msg.String() {
+		case "/":
+			m.searchQuery = ""
+			m.searchShow = true
+			cmd := m.searchInput.Focus()
+			cmds = append(cmds, cmd)
+			return m, tea.Batch(cmds...)
+
 		case "h":
 			m.humanSizes = !m.humanSizes
 			m.updateTable(Processes())
@@ -129,6 +183,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.simpleView = !m.simpleView
 			m.table.Headers(tableHeaders(m.simpleView)...)
 			m.updateTable(Processes())
+		case "esc":
+			// Escape cancels any active search filter
+			m.searchQuery = ""
+			m.updateTable(Processes())
 		case "ctrl+c", "q":
 			return m, tea.Quit
 			// case "ctrl+p", "up", "k":
@@ -137,18 +195,45 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// 	m.table.MoveDown(1)
 		}
 	case refreshMsg:
+		// There are two things going on here on the update
+		// loop: We want to update the table as well as update
+		// the input field where the user is typing, hence the
+		// cmds array.
+		cmds = append(cmds, m.refreshCmd())
 		m.updateTable(Processes())
-		return m, m.refreshCmd()
+
+		if m.searchShow {
+			cmd := m.searchInput.Focus()
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
 	}
 
 	return m, nil
 }
 
 func (m model) View() tea.View {
-	v := tea.NewView(
-		m.viewHeader() +
-			"\n" +
-			m.table.String() + "\n")
+	// Regular top table
+	s := lipgloss.JoinVertical(
+		lipgloss.Top,
+		m.viewHeader()+"\n"+m.table.String()+"\n")
+	// Showing the search input box
+	if m.searchShow {
+		m.searchInput.Focus()
+		s = lipgloss.JoinVertical(
+			lipgloss.Top,
+			m.viewHeader()+
+				m.searchInput.View()+"\n"+
+				m.table.String()+"\n")
+	}
+
+	v := tea.NewView(s)
+
+	var c *tea.Cursor
+	if !m.searchInput.VirtualCursor() {
+		c = m.searchInput.Cursor()
+	}
+	v.Cursor = c
 
 	// Alternate screen buffer (AltScreen) means full screen 😉
 	v.AltScreen = true
@@ -156,26 +241,36 @@ func (m model) View() tea.View {
 }
 
 func main() {
+	f, err := tea.LogToFile("debug.log", "ytop")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
 	pflag.Parse()
 	if showVersion {
 		fmt.Printf("ytop version: %v\n", Version)
 		os.Exit(0)
 	}
 
+	log.Println("foo")
+
 	t := table.New().Headers(tableHeaders(simpleView)...)
 	m := model{
 		conf: pkg.YTopConf{
 			Foreground:         fgColour,
 			Background:         fgColour,
-			HeaderForeground:   fgColour,
-			HeaderBackground:   bgColour,
+			HeaderForeground:   fgHeaderColour,
+			HeaderBackground:   bgHeaderColour,
 			SelectedForeground: fgSelColour,
 			SelectedBackground: bgSelColour,
 			SimpleView:         simpleView,
 		},
-		table:      t,
-		humanSizes: humanSizes,
-		simpleView: simpleView,
+		table:       t,
+		humanSizes:  humanSizes,
+		simpleView:  simpleView,
+		searchInput: searchInput(),
 	}
 
 	p := tea.NewProgram(m)
@@ -184,5 +279,4 @@ func main() {
 		fmt.Printf("%v\n", debug.Stack())
 		os.Exit(1)
 	}
-
 }

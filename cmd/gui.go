@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
+	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/table"
 )
@@ -33,6 +35,7 @@ func (m *model) viewHeader() string {
 			"n (name)",
 			"quit: q",
 		))
+
 	return line + "\n" + cpu + "\n" + memory + "\n" + help + "\n"
 }
 
@@ -55,9 +58,12 @@ func tableHeaders(simpleView bool) []string {
 
 func (m *model) createTable() *table.Table {
 	columns := tableHeaders(m.simpleView)
+	log.Printf("hdr bg %v\n", m.conf.HeaderBackground)
+	log.Printf("hdr fg %v\n", m.conf.HeaderForeground)
 
 	baseStyle := lipgloss.NewStyle().Padding(0, 1)
 	headerStyle := baseStyle.
+		Background(lipgloss.Color(m.conf.HeaderBackground)).
 		Foreground(lipgloss.Color(m.conf.HeaderForeground)).
 		Bold(true)
 
@@ -79,4 +85,13 @@ func (m *model) createTable() *table.Table {
 		})
 
 	return t
+}
+
+func searchInput() textinput.Model {
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Cmd to search for"
+	searchInput.CharLimit = 100
+	searchInput.SetWidth(searchInput.CharLimit)
+	searchInput.Focus()
+	return searchInput
 }
