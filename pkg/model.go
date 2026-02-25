@@ -35,6 +35,8 @@ type Process struct {
 type YTopConf struct {
 	HeaderForeground   string
 	HeaderBackground   string
+	Foreground         string
+	Background         string
 	SelectedForeground string
 	SelectedBackground string
 	SimpleView         bool
