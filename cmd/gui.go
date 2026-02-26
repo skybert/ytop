@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
@@ -57,9 +56,9 @@ func tableHeaders(simpleView bool) []string {
 }
 
 func (m *model) createTable() *table.Table {
-	columns := tableHeaders(m.simpleView)
-	log.Printf("hdr bg %v\n", m.conf.HeaderBackground)
-	log.Printf("hdr fg %v\n", m.conf.HeaderForeground)
+	headers := tableHeaders(m.simpleView)
+	dummyRow := make([]string, len(headers))
+	dummyRow[0] = "Loading processes ..."
 
 	baseStyle := lipgloss.NewStyle().Padding(0, 1)
 	headerStyle := baseStyle.
@@ -68,12 +67,14 @@ func (m *model) createTable() *table.Table {
 		Bold(true)
 
 	t := table.New().
-		Headers(columns...).
-		BorderTop(false).
+		Headers(headers...).
+		Rows(dummyRow).
+		BorderBottom(false).
 		BorderColumn(false).
+		BorderHeader(false).
 		BorderLeft(false).
 		BorderRight(false).
-		BorderBottom(false).
+		BorderTop(false).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			switch row {
 			case table.HeaderRow:
