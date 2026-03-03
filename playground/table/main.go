@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2/table"
 )
@@ -47,5 +50,7 @@ func main() {
 		Headers(headers...).
 		Rows(rows...)
 	if _, err := tea.NewProgram(model{t}).Run(); err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
 	}
 }

@@ -18,7 +18,7 @@ build: fmt
 
 .phony: lint
 lint: fmt
-	staticcheck ./...
+	golangci-lint run ./...
 
 .phony: vuln
 vuln:

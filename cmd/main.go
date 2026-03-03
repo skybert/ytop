@@ -246,7 +246,11 @@ func main() {
 		fmt.Println("fatal:", err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Printf("Couldn't close file: %v\n", err)
+		}
+	}()
 
 	pflag.Parse()
 	if showVersion {
