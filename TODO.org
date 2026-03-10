@@ -1,0 +1,5 @@
+
+* ✅ Search by process name or argument
+* ✅ Kill process by PID
+* ✅ Default kill process to process with highest CPU usage
+* 🆕 Show processes consuming excessive resources in red

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"sort"
 
 	psutil "github.com/shirou/gopsutil/v4/process"
@@ -34,6 +35,16 @@ func SortProcesses(processes []pkg.Process, sortKey pkg.SortKey) {
 		}
 		return false
 	})
+}
+
+func Kill(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+
+	err = p.Kill()
+	return err
 }
 
 // Processes returns the current running processes, represented using
