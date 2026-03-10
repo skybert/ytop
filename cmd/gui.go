@@ -155,8 +155,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "enter":
 				m.input.SetValue("")
-				m.inputShow = false
-				log.Println("You searched for: " + m.inputQuery)
+
+				switch m.inputType {
+				case killInput:
+					// TODO show new input to select signal
+					pid, err := strconv.Atoi(m.inputQuery)
+					if err != nil {
+						// eek!
+					}
+					Kill(pid)
+
+				case searchInput:
+					m.inputShow = false
+					log.Println("You searched for: " + m.inputQuery)
+				}
 			case "esc":
 				m.inputShow = false
 				m.input.SetValue("")
