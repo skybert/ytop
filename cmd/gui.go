@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,12 +78,8 @@ func (m *model) updateTable(procs []pkg.Process) {
 
 	procsToInclude := make([]pkg.Process, 0)
 	for _, p := range procs {
-		if m.searchQuery != "" {
-			if !strings.Contains(
-				strings.ToLower(p.Args),
-				strings.ToLower(m.searchQuery)) {
-				continue
-			}
+		if m.shouldContinue(p) {
+			continue
 		}
 		procsToInclude = append(procsToInclude, p)
 	}
@@ -102,6 +99,30 @@ func (m *model) updateTable(procs []pkg.Process) {
 	}
 
 	m.table.ClearRows().Rows(rows...)
+}
+
+func (m *model) shouldContinue(p pkg.Process) bool {
+	if m.inputQuery == "" {
+		return false
+	}
+
+	switch m.inputType {
+	case searchInput:
+		return !strings.Contains(
+			strings.ToLower(p.Args),
+			strings.ToLower(m.inputQuery),
+		)
+
+	case killInput:
+		return !strings.Contains(
+			strconv.Itoa(p.Pid),
+			m.inputQuery,
+		)
+
+	default:
+		return false
+	}
+
 }
 
 func (m *model) humanBytes(bytes uint64) string {
@@ -126,23 +147,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		if m.searchShow {
+		if m.inputShow {
 			var cmd tea.Cmd
-			m.searchInput, cmd = m.searchInput.Update(msg)
+			m.input, cmd = m.input.Update(msg)
 			cmds = append(cmds, cmd)
 
 			switch msg.String() {
 			case "enter":
-				m.searchInput.SetValue("")
-				m.searchShow = false
-				log.Println("You searched for: " + m.searchQuery)
+				m.input.SetValue("")
+				m.inputShow = false
+				log.Println("You searched for: " + m.inputQuery)
 			case "esc":
-				m.searchShow = false
-				m.searchInput.SetValue("")
-				m.searchQuery = ""
+				m.inputShow = false
+				m.input.SetValue("")
+				m.inputQuery = ""
 				m.updateTable(Processes())
 			default:
-				m.searchQuery = m.searchInput.Value()
+				m.inputQuery = m.input.Value()
 				m.updateTable(Processes())
 			}
 
@@ -151,9 +172,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "/":
-			m.searchQuery = ""
-			m.searchShow = true
-			cmd := m.searchInput.Focus()
+			m.inputType = searchInput
+			m.inputQuery = ""
+			m.inputShow = true
+			m.input.Placeholder = "Command to search for"
+			cmd := m.input.Focus()
+			cmds = append(cmds, cmd)
+			return m, tea.Batch(cmds...)
+		case "k":
+			m.inputType = killInput
+			m.inputQuery = ""
+			m.inputShow = true
+			m.input.Placeholder = "PID to signal/kill"
+			cmd := m.input.Focus()
 			cmds = append(cmds, cmd)
 			return m, tea.Batch(cmds...)
 
@@ -175,7 +206,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTable(Processes())
 		case "esc":
 			// Escape cancels any active search filter
-			m.searchQuery = ""
+			m.inputQuery = ""
 			m.updateTable(Processes())
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -192,8 +223,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.refreshCmd())
 		m.updateTable(Processes())
 
-		if m.searchShow {
-			cmd := m.searchInput.Focus()
+		if m.inputShow {
+			cmd := m.input.Focus()
 			cmds = append(cmds, cmd)
 		}
 		return m, tea.Batch(cmds...)
@@ -208,20 +239,20 @@ func (m model) View() tea.View {
 		lipgloss.Top,
 		m.viewHeader()+"\n"+m.table.String()+"\n")
 	// Showing the search input box
-	if m.searchShow {
-		m.searchInput.Focus()
+	if m.inputShow {
+		m.input.Focus()
 		s = lipgloss.JoinVertical(
 			lipgloss.Top,
 			m.viewHeader()+
-				m.searchInput.View()+"\n"+
+				m.input.View()+"\n"+
 				m.table.String()+"\n")
 	}
 
 	v := tea.NewView(s)
 
 	var c *tea.Cursor
-	if !m.searchInput.VirtualCursor() {
-		c = m.searchInput.Cursor()
+	if !m.input.VirtualCursor() {
+		c = m.input.Cursor()
 	}
 	v.Cursor = c
 
@@ -263,9 +294,9 @@ func (m *model) createTable() *table.Table {
 	return t
 }
 
-func searchInput() textinput.Model {
+func input() textinput.Model {
 	searchInput := textinput.New()
-	searchInput.Placeholder = "Cmd to search for"
+	searchInput.Placeholder = "Enter friend"
 	searchInput.CharLimit = 100
 	searchInput.SetWidth(searchInput.CharLimit)
 	searchInput.Focus()

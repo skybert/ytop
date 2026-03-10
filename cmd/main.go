@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime/debug"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2/table"
 	"github.com/spf13/pflag"
@@ -52,20 +51,6 @@ func init() {
 	pflag.StringVar(&fgColour, "fg", "#b8c0d4", "Foreground colour")
 }
 
-type model struct {
-	conf        pkg.YTopConf
-	height      int
-	humanSizes  bool
-	processes   []pkg.Process
-	searchShow  bool
-	searchQuery string
-	searchInput textinput.Model
-	simpleView  bool
-	sortKey     pkg.SortKey
-	table       *table.Table
-	width       int
-}
-
 func main() {
 	f, err := tea.LogToFile("debug.log", "ytop")
 	if err != nil {
@@ -97,10 +82,10 @@ func main() {
 			SelectedBackground: bgSelColour,
 			SimpleView:         simpleView,
 		},
-		table:       t,
-		humanSizes:  humanSizes,
-		simpleView:  simpleView,
-		searchInput: searchInput(),
+		table:      t,
+		humanSizes: humanSizes,
+		simpleView: simpleView,
+		input:      input(),
 	}
 
 	p := tea.NewProgram(m)
