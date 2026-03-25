@@ -158,6 +158,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				switch m.inputType {
 				case killInput:
+					m.inputShow = false
+
 					// TODO show new input to select signal
 					pid, err := strconv.Atoi(m.inputQuery)
 					if err != nil {
@@ -199,7 +201,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		case "k":
 			procs := Processes()
-			SortProcesses(procs, pkg.SortKeyCPU)
+			// We default to killing the top process on the
+			// currently active sorting key
+			SortProcesses(procs, m.sortKey)
 
 			m.inputType = killInput
 			m.inputQuery = ""
