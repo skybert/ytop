@@ -40,3 +40,7 @@ $ go install golang.org/x/vuln/cmd/govulncheck@latest
 # License
 
 `ytop` is free software, GPLv3, see [LICENSE](LICENSE).
+
+# Roadmap
+
+- CPU load average
